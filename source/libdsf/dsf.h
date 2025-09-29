@@ -93,28 +93,32 @@ dsf_error DSF_FreeFont(dsf_handle *handle);
 /// @defgroup libdsf_render Functions to draw text strings.
 /// @{
 
-/// @param handle  Handler of the font to use.
-/// @param str     String to print.
-/// @param size_x  Pointer to a variable to store the size.
-/// @param size_y  Pointer to a variable to store the size.
-/// @param final_x Pointer to a variable to store the final X cursor position.
-/// @param final_y Pointer to a variable to store the final Y cursor position.
+/// @param handle    Handler of the font to use.
+/// @param str       String to print.
+/// @param size_x    Pointer to a variable to store the size.
+/// @param size_y    Pointer to a variable to store the size.
+/// @param num_chars Pointer to a variable to store the number of characters in the string.
+/// @param final_x   Pointer to a variable to store the final X cursor position.
+/// @param final_y   Pointer to a variable to store the final Y cursor position.
+/// @param extra_space Integer indicating how much extra spacing should be placed between characters
 ///
 /// @return An error code or DSF_NO_ERROR on success.
 dsf_error DSF_StringRenderDryRunWithCursor(dsf_handle handle, const char *str,
-                                 size_t *size_x, size_t *size_y,
-                                 size_t *final_x, size_t *final_y);
+                                 size_t *size_x, size_t *size_y, size_t *num_chars,
+                                 size_t *final_x, size_t *final_y, uint32_t extraSpace);
 
 /// Pretend to render a string to calculate its final size once rendered.
 ///
-/// @param handle  Handler of the font to use.
-/// @param str     String to print.
-/// @param size_x  Pointer to a variable to store the size.
-/// @param size_y  Pointer to a variable to store the size.
+/// @param handle      Handler of the font to use.
+/// @param str         String to print.
+/// @param size_x      Pointer to a variable to store the size.
+/// @param size_y      Pointer to a variable to store the size.
+/// @param num_chars   Pointer to a variable to store the number of characters in the string.
+/// @param extra_space Integer indicating how much extra spacing should be placed between characters
 ///
 /// @return An error code or DSF_NO_ERROR on success.
 dsf_error DSF_StringRenderDryRun(dsf_handle handle, const char *str,
-                                 size_t *size_x, size_t *size_y);
+                                 size_t *size_x, size_t *size_y, size_t *num_chars, uint32_t extra_space);
                                  
 /// Render a string by rendering one 3D quad per codepoint.
 ///
@@ -191,6 +195,46 @@ dsf_error DSF_StringRender3DAlphaWithIndent(dsf_handle handle, const char *str,
 dsf_error DSF_StringRender3DAlpha(dsf_handle handle, const char *str,
                                   int32_t x, int32_t y, int32_t z,
                                   uint32_t poly_fmt, int poly_id_base);
+
+/// Allocates a buffer and renders the provided string to that buffer. It also
+/// provides font metadata that can be loaded to create a VRAM font.
+///
+/// This function takes a texture stored in RAM with the desired font. It will
+/// calculate the final size of the text it has to print, and it will allocate
+/// enough space for it. Note that NDS texture sizes must be powers of two, so
+/// the end result may be bigger than the actual text. After allocating the
+/// buffer, it will render the string to that buffer.
+///
+/// This function won't load the texture to VRAM. The returned buffer needs to
+/// be loaded to texture VRAM to be used (with functions like glTexImage2D() or
+/// NE_MaterialTexLoad()).
+///
+/// Also, note that this texture doesn't need to have a size that is a power of
+/// two. However, consider that the size of a row should at least be a multiple
+/// of a full pixel (for example, for a 16 color texture, don't use a texture
+/// with width of 143 bytes because the last pixel won't be full). To be sure
+/// that you never find any issue, ensure that your textures have a width
+/// multiple of 4 pixels, that will work with all texture formats.
+///
+/// @param handle       Handler of the font to use.
+/// @param str          String to print.
+/// @param texture_fmt  Texture format (GL_TEXTURE_TYPE_ENUM, NE_TextureFormat).
+/// @param font_texture Pointer to the font texture.
+/// @param font_width   Width of the font texture.
+/// @param font_height  Height of the font texture.
+/// @param out_texture  The pointer to the new buffer is returned here.
+/// @param out_width    The width to the new buffer is returned here.
+/// @param out_height   The height to the new buffer is returned here.
+/// @param return_md    If true, the output metadata will be allocated & set.
+/// @param out_metadata The output metadata buffer to be loaded is returned here.
+/// @param out_md_size  The size of the output metadata buffer
+///
+/// @return An error code or DSF_NO_ERROR on success.
+dsf_error DSF_StringRenderToTextureReturnMetadata(dsf_handle handle,
+                    const char *str, unsigned int texture_fmt,
+                    const void *font_texture, size_t font_width, size_t font_height,
+                    void **out_texture, size_t *out_width, size_t *out_height,
+                    bool return_md, void **out_metadata, size_t *metadata_size);
 
 /// Allocates a buffer and renders the provided string to that buffer.
 ///

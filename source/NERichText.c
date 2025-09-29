@@ -7,6 +7,7 @@
 #include "NEMain.h"
 
 #include "libdsf/dsf.h"
+#include <stddef.h>
 
 /// @file NERichText.c
 
@@ -69,7 +70,7 @@ void NE_RichTextInit(u32 slot)
     NE_RichTextPriorityReset();
 }
 
-int NE_RichTextEnd(u32 slot)
+int NE_RichTextEndWithPalOption(u32 slot, bool delete_palette)
 {
     if (slot >= NE_NumRichTextSlots)
         return 0;
@@ -80,7 +81,7 @@ int NE_RichTextEnd(u32 slot)
 
     if (info->material != NULL)
         NE_MaterialDelete(info->material);
-    if (info->palette != NULL)
+    if (info->palette != NULL && delete_palette)
         NE_PaletteDelete(info->palette);
 
     if (info->has_to_free_buffers)
@@ -106,6 +107,11 @@ int NE_RichTextEnd(u32 slot)
         return 0;
 
     return 1;
+}
+
+int NE_RichTextEnd(u32 slot)
+{
+    return NE_RichTextEndWithPalOption(slot, true);
 }
 
 int NE_RichTextStartSystem(u32 numSlots)
@@ -376,9 +382,10 @@ int NE_RichTextRenderDryRunWithPos(u32 slot, const char *str,
     if (!info->active)
         return 0;
 
+    size_t num_chars;
     dsf_error err = DSF_StringRenderDryRunWithCursor(info->handle, str,
-                                                     size_x, size_y,
-                                                     final_x, final_y);
+                                                     size_x, size_y, &num_chars,
+                                                     final_x, final_y, 0);
     if (err != DSF_NO_ERROR)
         return 0;
 
@@ -449,8 +456,9 @@ int NE_RichTextRender3DAlpha(u32 slot, const char *str, s32 x, s32 y,
     return NE_RichTextRender3DAlphaWithIndent(slot, str, x, y, poly_fmt, poly_id_base, 0);
 }
 
-int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
-                              NE_Palette **pal)
+int NE_RichTextRenderMaterialWithMetadata(u32 slot, const char *str, NE_Material **mat,
+                                          NE_Palette **pal, bool return_md, void **metadata,
+                                          size_t *metadata_size, bool overwrite_pal)
 {
     NE_AssertPointer(str, "NULL str pointer");
     NE_AssertPointer(mat, "NULL mat pointer");
@@ -465,10 +473,11 @@ int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
 
     void *out_texture = NULL;
     size_t out_width, out_height;
-    dsf_error err = DSF_StringRenderToTexture(info->handle,
+    dsf_error err = DSF_StringRenderToTextureReturnMetadata(info->handle,
                             str, info->fmt, info->texture_buffer,
                             info->texture_width, info->texture_height,
-                            &out_texture, &out_width, &out_height);
+                            &out_texture, &out_width, &out_height,
+                            return_md, metadata, metadata_size);
     if (err != DSF_NO_ERROR)
     {
         free(out_texture);
@@ -484,7 +493,7 @@ int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
         return 0;
     }
 
-    if (info->palette_buffer != NULL)
+    if (info->palette_buffer != NULL && overwrite_pal)
     {
         NE_Palette *palette = NE_PaletteCreate();
         if (NE_PaletteLoad(palette, info->palette_buffer,
@@ -504,9 +513,54 @@ int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
         else
             NE_MaterialAutodeletePalette(*mat);
     }
+    else if (pal)
+    {
+        NE_MaterialSetPalette(*mat, *pal);
+    }
 
     // This isn't needed after it has been loaded to VRAM
     free(out_texture);
 
     return 1;
+}
+
+int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
+                              NE_Palette **pal)
+{
+    size_t metadata_size;
+    return NE_RichTextRenderMaterialWithMetadata(slot, str, mat, pal, false, NULL, &metadata_size, true);
+}
+
+int NE_RichTextInitFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
+                             NE_Palette **pal)
+{
+    NE_Material *mat = NULL;
+    u8 *metadata = NULL;
+    size_t metadata_size;
+    if (NE_RichTextRenderMaterialWithMetadata(srcSlot, chars, &mat, pal, true, (void **)&metadata, &metadata_size, false) == 0)
+    {
+        NE_MaterialDelete(mat);
+        return 0;
+    }
+
+    NE_RichTextInit(dstSlot);
+    if (NE_RichTextMetadataLoadMemory(dstSlot, metadata, metadata_size) == 0)
+    {
+        NE_MaterialDelete(mat);
+        return 0;
+    }
+    if (NE_RichTextMaterialSet(dstSlot, mat, *pal) == 0)
+    {
+        NE_MaterialDelete(mat);
+        return 0;
+    }
+
+    return 1;
+}
+
+int NE_RichTextUpdateFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
+                               NE_Palette **pal)
+{
+    NE_RichTextEndWithPalOption(dstSlot, false);
+    return NE_RichTextInitFontCache(dstSlot, srcSlot, chars, pal);
 }

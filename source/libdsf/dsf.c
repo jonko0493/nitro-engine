@@ -9,6 +9,7 @@
 #include <nds.h>
 
 #include <dsf.h>
+#include <string.h>
 
 // BMFont format structures
 // ------------------------
@@ -420,7 +421,7 @@ error:
     return size;
 }
 
-dsf_error DSF_CodepointRenderDryRun(dsf_handle handle, uint32_t codepoint)
+dsf_error DSF_CodepointRenderDryRunWithSpacing(dsf_handle handle, uint32_t codepoint, uint32_t extra_space)
 {
     if ((handle == 0) || (codepoint == 0))
         return DSF_INVALID_ARGUMENT;
@@ -432,6 +433,10 @@ dsf_error DSF_CodepointRenderDryRun(dsf_handle handle, uint32_t codepoint)
         font->pointer_x = font->box_left;
         font->pointer_y += font->line_height;
         return DSF_NO_ERROR;
+    }
+    else
+    {
+        font->pointer_x += extra_space;
     }
 
     const block_char *ch = DSF_CodepointFindGlyph(handle, codepoint);
@@ -467,6 +472,11 @@ dsf_error DSF_CodepointRenderDryRun(dsf_handle handle, uint32_t codepoint)
     font->last_codepoint = codepoint;
 
     return DSF_NO_ERROR;
+}
+
+dsf_error DSF_CodepointRenderDryRun(dsf_handle handle, uint32_t codepoint)
+{
+    return DSF_CodepointRenderDryRunWithSpacing(handle, codepoint, 0);
 }
 
 static dsf_error DSF_CodepointRender3D(dsf_handle handle, uint32_t codepoint,
@@ -538,8 +548,8 @@ static dsf_error DSF_CodepointRender3D(dsf_handle handle, uint32_t codepoint,
 }
 
 dsf_error DSF_StringRenderDryRunWithCursor(dsf_handle handle, const char *str,
-                                           size_t *size_x, size_t *size_y,
-                                           size_t *final_x, size_t *final_y)
+                                           size_t *size_x, size_t *size_y, size_t *num_chars,
+                                           size_t *final_x, size_t *final_y, uint32_t extra_space)
 {
     if ((handle == 0) || (str == NULL) || (size_x == NULL) || (size_y == NULL) ||
         (final_x == NULL) || (final_y == NULL))
@@ -568,14 +578,16 @@ dsf_error DSF_StringRenderDryRunWithCursor(dsf_handle handle, const char *str,
 
     size_t max_x = 0;
     size_t max_y = 0;
+    *num_chars = 0;
 
     while (*readptr != '\0')
     {
         uint32_t codepoint;
         size_t size = DSF_UTF8_CodepointRead(readptr, &codepoint);
         readptr += size;
+        (*num_chars)++;
 
-        ret = DSF_CodepointRenderDryRun(handle, codepoint);
+        ret = DSF_CodepointRenderDryRunWithSpacing(handle, codepoint, extra_space);
         if (ret != DSF_NO_ERROR)
             break;
 
@@ -594,10 +606,10 @@ dsf_error DSF_StringRenderDryRunWithCursor(dsf_handle handle, const char *str,
 }
 
 dsf_error DSF_StringRenderDryRun(dsf_handle handle, const char *str,
-                                 size_t *size_x, size_t *size_y)
+                                 size_t *size_x, size_t *size_y, size_t *num_chars, uint32_t extra_space)
 {
     size_t final_x, final_y;
-    return DSF_StringRenderDryRunWithCursor(handle, str, size_x, size_y, &final_x, &final_y);
+    return DSF_StringRenderDryRunWithCursor(handle, str, size_x, size_y, num_chars, &final_x, &final_y, extra_space);
 }
 
 dsf_error DSF_StringRender3DWithIndent(dsf_handle handle, const char *str,
@@ -694,7 +706,8 @@ dsf_error DSF_StringRender3DAlpha(dsf_handle handle, const char *str,
 static dsf_error DSF_CodepointRenderBuffer(dsf_handle handle,
                     uint32_t codepoint, unsigned int texture_fmt,
                     const void *font_texture, size_t font_width, size_t font_height,
-                    void *out_texture, size_t out_width, size_t out_height)
+                    void *out_texture, size_t out_width, size_t out_height,
+                    block_char *out_block_char)
 {
     // Don't check if the arguments are valid, this is an internal function
 
@@ -710,6 +723,20 @@ static dsf_error DSF_CodepointRenderBuffer(dsf_handle handle,
     const block_char *ch = DSF_CodepointFindGlyph(handle, codepoint);
     if (ch == NULL)
         return DSF_CODEPOINT_NOT_FOUND;
+
+    if (out_block_char != NULL)
+    {
+        font->pointer_x++;
+    }
+
+    if (out_block_char != NULL)
+    {
+        block_char test = {ch->id,      font->pointer_x + ch->xoffset, font->pointer_y + ch->yoffset,
+                         ch->width,   ch->height,      ch->xoffset,
+                         ch->yoffset, ch->xadvance,    ch->page,
+                         ch->channel};
+        *out_block_char = test;
+    }
 
     int tx1 = ch->x;
     int ty1 = ch->y;
@@ -727,17 +754,20 @@ static dsf_error DSF_CodepointRenderBuffer(dsf_handle handle,
     font->pointer_x += ch->xadvance;
 
     // Kerning pair to find
-    kerning_pair key = { 0 };
-    key.first = font->last_codepoint;
-    key.second = codepoint;
-
-    const kerning_pair *ker = bsearch(&key, font->kernings, font->num_kernings,
-                                      sizeof(kerning_pair), DSF_kerning_pair_cmp);
-    if (ker != NULL)
+    if (out_block_char == NULL)
     {
-        x1 += ker->amount;
-        x2 += ker->amount;
-        font->pointer_x += ker->amount;
+        kerning_pair key = { 0 };
+        key.first = font->last_codepoint;
+        key.second = codepoint;
+
+        const kerning_pair *ker = bsearch(&key, font->kernings, font->num_kernings,
+                                        sizeof(kerning_pair), DSF_kerning_pair_cmp);
+        if (ker != NULL)
+        {
+            x1 += ker->amount;
+            x2 += ker->amount;
+            font->pointer_x += ker->amount;
+        }
     }
 
     font->last_codepoint = codepoint;
@@ -783,7 +813,7 @@ static dsf_error DSF_CodepointRenderBuffer(dsf_handle handle,
             for (int x = 0; x <= x2 - x1; x++)
             {
                 uint16_t color = *src_row++;
-                if (color & BIT(15))
+                if (color)
                     *dst_row = color;
                 dst_row++;
             }
@@ -800,29 +830,14 @@ static dsf_error DSF_CodepointRenderBuffer(dsf_handle handle,
         src += tx1 + ty1 * font_width;
         dst += x1 + y1 * out_width;
 
-        int alpha_shift;
-
-        if (texture_fmt == GL_RGB32_A3)
-            alpha_shift = 5;
-        else // if (texture_fmt == GL_RGB8_A5)
-            alpha_shift = 3;
-
-        for (int y = 0; y <= y2 - y1; y++)
+        for (int y = 0; y < y2 - y1; y++)
         {
             const uint8_t *src_row = src;
             uint8_t *dst_row = dst;
 
-            for (int x = 0; x <= x2 - x1; x++)
+            for (int x = 0; x < x2 - x1; x++)
             {
-                uint8_t color = *src_row++;
-                // We can't really blend two different colors because we're
-                // limited by the palette. For that reason, if the new alpha is
-                // 0 we leave the old entry. If the new alpha is anything other
-                // than 0, we replace the old entry by the new entry, even if
-                // the result is incorrect.
-                if ((color >> alpha_shift) != 0)
-                    *dst_row = color;
-                dst_row++;
+                *dst_row++ = *src_row++; 
             }
 
             src += font_width;
@@ -887,10 +902,11 @@ static dsf_error DSF_CodepointRenderBuffer(dsf_handle handle,
     return DSF_NO_ERROR;
 }
 
-dsf_error DSF_StringRenderToTexture(dsf_handle handle,
+dsf_error DSF_StringRenderToTextureReturnMetadata(dsf_handle handle,
                     const char *str, unsigned int texture_fmt,
                     const void *font_texture, size_t font_width, size_t font_height,
-                    void **out_texture, size_t *out_width, size_t *out_height)
+                    void **out_texture, size_t *out_width, size_t *out_height,
+                    bool return_md, void **out_metadata, size_t *out_md_size)
 {
     if ((handle == 0) || (str == NULL) || (font_texture == NULL) ||
         (out_texture == NULL) || (out_width == NULL) || (out_height == NULL))
@@ -913,9 +929,9 @@ dsf_error DSF_StringRenderToTexture(dsf_handle handle,
 
     // Get size
 
-    size_t tex_width, tex_height;
+    size_t tex_width, tex_height, num_chars;
 
-    ret = DSF_StringRenderDryRun(handle, str, &tex_width, &tex_height);
+    ret = DSF_StringRenderDryRun(handle, str, &tex_width, &tex_height, &num_chars, 1);
     if (ret != DSF_NO_ERROR)
         return ret;
 
@@ -933,14 +949,15 @@ dsf_error DSF_StringRenderToTexture(dsf_handle handle,
         }
     }
 
-    for (size_t i = 8; i <= 1024; i <<= 1)
-    {
-        if (tex_height <= i)
-        {
-            tex_height = i;
-            break;
-        }
-    }
+    // Don't need to pad height
+    // for (size_t i = 8; i <= 1024; i <<= 1)
+    // {
+    //     if (tex_height <= i)
+    //     {
+    //         tex_height = i;
+    //         break;
+    //     }
+    // }
 
     const int size_shift[] = {
         0, // Nothing
@@ -962,6 +979,48 @@ dsf_error DSF_StringRenderToTexture(dsf_handle handle,
     if (tex_buffer == NULL)
         return DSF_NO_MEMORY;
 
+    // Prep output metadata
+
+    block_char *block_char_writer;
+    if (return_md)
+    {
+        *out_md_size = sizeof(bmf_header) + 3 * sizeof(bmf_block_header) + sizeof(bmf_block_2_common) + font->num_kernings * sizeof(bmf_block_5_kerning_pair) + num_chars * sizeof(block_char);
+        *out_metadata = calloc(1, *out_md_size);
+        uint8_t *metadata_writer = (uint8_t *)(*out_metadata);
+        strcpy((char *)metadata_writer, "BMF\x03");
+        metadata_writer += sizeof(bmf_header);
+        
+        // Write block 2
+        uint32_t block2_size = sizeof(bmf_block_2_common);
+        bmf_block_2_common common_block = { font->line_height, font->base, 1, 1, 1, 0, 0, 0, 0, 0 };
+        *metadata_writer++ = 2;
+        memcpy(metadata_writer, &block2_size, 4);
+        metadata_writer += 4;
+        memcpy(metadata_writer, &common_block, sizeof(bmf_block_2_common));
+        metadata_writer += block2_size;
+
+        // Write block 5
+        uint32_t block5_size = sizeof(bmf_block_5_kerning_pair) * font->num_kernings;
+        *metadata_writer++ = 5;
+        memcpy(metadata_writer, &block5_size, 4);
+        metadata_writer += 4;
+        memcpy(metadata_writer, font->kernings, sizeof(kerning_pair) * font->num_kernings);
+        metadata_writer += block5_size;
+
+        // Write block 4 header
+        uint32_t block4_size = sizeof(bmf_block_4_char) * num_chars;
+        *metadata_writer++ = 4;
+        memcpy(metadata_writer, &block4_size, 4);
+        metadata_writer += 4;
+
+        block_char_writer = (block_char *)metadata_writer;
+    }
+    else
+    {
+        block_char_writer = NULL;
+        *out_md_size = 0;
+    }
+
     // Render string
 
     font->pointer_x = 0;
@@ -980,7 +1039,12 @@ dsf_error DSF_StringRenderToTexture(dsf_handle handle,
 
         ret = DSF_CodepointRenderBuffer(handle, codepoint, texture_fmt,
                                         font_texture, font_width, font_height,
-                                        tex_buffer, tex_width, tex_height);
+                                        tex_buffer, tex_width, tex_height, 
+                                        block_char_writer);
+        if (block_char_writer != NULL)
+        {
+            block_char_writer++;
+        }
         if (ret != DSF_NO_ERROR)
             break;
     }
@@ -992,4 +1056,13 @@ dsf_error DSF_StringRenderToTexture(dsf_handle handle,
     *out_height = tex_height;
 
     return ret;
+}
+
+dsf_error DSF_StringRenderToTexture(dsf_handle handle,
+                    const char *str, unsigned int texture_fmt,
+                    const void *font_texture, size_t font_width, size_t font_height,
+                    void **out_texture, size_t *out_width, size_t *out_height)
+{
+    size_t size;
+    return DSF_StringRenderToTextureReturnMetadata(handle, str, texture_fmt, font_texture, font_width, font_height, out_texture, out_width, out_height, false, NULL, &size);
 }

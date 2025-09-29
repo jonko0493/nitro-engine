@@ -297,6 +297,34 @@ int NE_RichTextRender3DAlpha(u32 slot, const char *str, s32 x, s32 y,
 int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
                               NE_Palette **pal);
 
+/// Renders a string as NE_RichTextRenderMaterial does, but renders it to
+/// a specified rich text slot.
+///
+/// This function creates a rich text "font cache", taking a subset of a
+/// large font in main RAM and generating a much smaller texture to use in
+/// VRAM. The smaller font can then be used with NE_RichTextRender* functions
+/// as usual. This allows you to do the CPU-intensive "material render" function
+/// only as needed and then render text directly from VRAM.
+///
+/// It is recommended that the user keep track of which characters have been
+/// allocated to the texture and add or remove them as needed to keep it from
+/// growing too much in size.
+///
+/// @param dstSlot The rich text slot to initialize with the font cache
+/// @param srcSlot The rich text slot to draw to use to draw the cache
+/// @param chars   The set of characters to draw to the cache
+/// @param pal     Pointer to an NE_Palette to use when drawing the cache
+int NE_RichTextInitFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
+                             NE_Palette **pal);
+
+/// Updates the font cache of a font initialized with NE_RichTextInitFontCache.
+///
+/// @param dstSlot The rich text slot whose font cache should be updated
+/// @param srcSlot The rich text slot to draw to use to draw the cache
+/// @param chars   The set of characters to draw to the cache
+/// @param pal     Pointer to an NE_Palette to use when drawing the cache
+int NE_RichTextUpdateFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
+                               NE_Palette **pal);
 /// @}
 
 #endif // NE_RICHTEXT_H__
