@@ -128,6 +128,11 @@ void NE_PaletteRGB256SetColor(u8 colorindex, u16 color);
 /// Use this during VBL.
 void NE_PaletteModificationEnd(void);
 
+/// Gets the format of a palette.
+///
+/// @param pal The palette whose format to fetch.
+NE_TextureFormat NE_PaletteGetFormat(NE_Palette *pal);
+
 /// @}
 
 #endif // NE_PALETTE_H__
