@@ -7,7 +7,6 @@
 #include "NEMain.h"
 
 #include "libdsf/dsf.h"
-#include <stddef.h>
 
 /// @file NERichText.c
 
@@ -70,7 +69,7 @@ void NE_RichTextInit(u32 slot)
     NE_RichTextPriorityReset();
 }
 
-int NE_RichTextEndWithPalOption(u32 slot, bool delete_palette)
+int NE_RichTextEnd(u32 slot)
 {
     if (slot >= NE_NumRichTextSlots)
         return 0;
@@ -81,7 +80,7 @@ int NE_RichTextEndWithPalOption(u32 slot, bool delete_palette)
 
     if (info->material != NULL)
         NE_MaterialDelete(info->material);
-    if (info->palette != NULL && delete_palette)
+    if (info->palette != NULL)
         NE_PaletteDelete(info->palette);
 
     if (info->has_to_free_buffers)
@@ -107,11 +106,6 @@ int NE_RichTextEndWithPalOption(u32 slot, bool delete_palette)
         return 0;
 
     return 1;
-}
-
-int NE_RichTextEnd(u32 slot)
-{
-    return NE_RichTextEndWithPalOption(slot, true);
 }
 
 int NE_RichTextStartSystem(u32 numSlots)
@@ -485,7 +479,7 @@ int NE_RichTextRenderMaterialWithMetadata(u32 slot, const char *str, NE_Material
         texture_height = NE_TextureGetSizeY(info->material);
         started_drawing = true;
     }
-    dsf_error err = DSF_StringRenderToTexture(info->handle,
+    dsf_error err = DSF_StringRenderToTextureReturnMetadata(info->handle,
                             str, fmt, texture_buffer,
                             texture_width, texture_height,
                             &out_texture, &out_width, &out_height,
@@ -501,7 +495,7 @@ int NE_RichTextRenderMaterialWithMetadata(u32 slot, const char *str, NE_Material
     }
 
     *mat = NE_MaterialCreate();
-    if (NE_MaterialTexLoad(*mat, info->fmt, out_width, out_height,
+    if (NE_MaterialTexLoad(*mat, fmt, out_width, out_height,
                            NE_TEXGEN_TEXCOORD | NE_TEXTURE_COLOR0_TRANSPARENT,
                            out_texture) == 0)
     {
@@ -579,36 +573,8 @@ int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
     return NE_RichTextRenderMaterialWithMetadata(slot, str, mat, pal, false, NULL, &metadata_size, true);
 }
 
-int NE_RichTextInitFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
-                             NE_Palette **pal)
+int NE_RichTextRenderMaterialAsFont(u32 slot, const char *str, NE_Material **mat, NE_Palette **pal,
+                                    void **metadata, size_t *metadata_size)
 {
-    NE_Material *mat = NULL;
-    u8 *metadata = NULL;
-    size_t metadata_size;
-    if (NE_RichTextRenderMaterialWithMetadata(srcSlot, chars, &mat, pal, true, (void **)&metadata, &metadata_size, false) == 0)
-    {
-        NE_MaterialDelete(mat);
-        return 0;
-    }
-
-    NE_RichTextInit(dstSlot);
-    if (NE_RichTextMetadataLoadMemory(dstSlot, metadata, metadata_size) == 0)
-    {
-        NE_MaterialDelete(mat);
-        return 0;
-    }
-    if (NE_RichTextMaterialSet(dstSlot, mat, *pal) == 0)
-    {
-        NE_MaterialDelete(mat);
-        return 0;
-    }
-
-    return 1;
-}
-
-int NE_RichTextUpdateFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
-                               NE_Palette **pal)
-{
-    NE_RichTextEndWithPalOption(dstSlot, false);
-    return NE_RichTextInitFontCache(dstSlot, srcSlot, chars, pal);
+    return NE_RichTextRenderMaterialWithMetadata(slot, str, mat, pal, true, metadata, metadata_size, true);
 }

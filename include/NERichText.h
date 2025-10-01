@@ -297,34 +297,20 @@ int NE_RichTextRender3DAlpha(u32 slot, const char *str, s32 x, s32 y,
 int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
                               NE_Palette **pal);
 
-/// Renders a string as NE_RichTextRenderMaterial does, but renders it to
-/// a specified rich text slot.
+/// Render a string with the specified font and create a material from it, returning
+/// font metadata associated with the new material.
 ///
-/// This function creates a rich text "font cache", taking a subset of a
-/// large font in main RAM and generating a much smaller texture to use in
-/// VRAM. The smaller font can then be used with NE_RichTextRender* functions
-/// as usual. This allows you to do the CPU-intensive "material render" function
-/// only as needed and then render text directly from VRAM.
+/// This idea here is that this can be used to create a new font on-the-fly from an
+/// existing, larger font. That font can then be unloaded from VRAM or left in main RAM.
 ///
-/// It is recommended that the user keep track of which characters have been
-/// allocated to the texture and add or remove them as needed to keep it from
-/// growing too much in size.
-///
-/// @param dstSlot The rich text slot to initialize with the font cache
-/// @param srcSlot The rich text slot to draw to use to draw the cache
-/// @param chars   The set of characters to draw to the cache
-/// @param pal     Pointer to an NE_Palette to use when drawing the cache
-int NE_RichTextInitFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
-                             NE_Palette **pal);
-
-/// Updates the font cache of a font initialized with NE_RichTextInitFontCache.
-///
-/// @param dstSlot The rich text slot whose font cache should be updated
-/// @param srcSlot The rich text slot to draw to use to draw the cache
-/// @param chars   The set of characters to draw to the cache
-/// @param pal     Pointer to an NE_Palette to use when drawing the cache
-int NE_RichTextUpdateFontCache(u32 dstSlot, u32 srcSlot, const char *chars,
-                               NE_Palette **pal);
-/// @}
+/// @param slot The font slot to use.
+/// @param str The string to print.
+/// @param mat A pointer to an NE_Material to store the new material.
+/// @param pal A pointer to an NE_Palette to store the returned palette. This should be set to avoid errors with NE_RichTextEnd.
+/// @param metadata The pointer in which the font metadata will be written.
+/// @param metadata_size A pointer in which to store the size of the resulting metadata in bytes.
+/// @return Returns 1 on success, 0 on failure.
+int NE_RichTextRenderMaterialAsFont(u32 slot, const char *str, NE_Material **mat, NE_Palette **pal,
+                                    void **metadata, size_t *metadata_size);
 
 #endif // NE_RICHTEXT_H__

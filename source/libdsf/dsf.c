@@ -813,7 +813,7 @@ static dsf_error DSF_CodepointRenderBuffer(dsf_handle handle,
             for (int x = 0; x < x2 - x1; x++)
             {
                 uint16_t color = *src_row++;
-                if (color)
+                if (color & BIT(15))
                     *dst_row = color;
                 dst_row++;
             }
