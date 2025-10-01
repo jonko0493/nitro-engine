@@ -279,38 +279,48 @@ void NE_PaletteSystemEnd(void)
     ne_palette_system_inited = false;
 }
 
-static u16 *palette_adress = NULL;
+static u16 *palette_address = NULL;
 static int palette_format;
 
 void *NE_PaletteModificationStart(const NE_Palette *pal)
 {
     NE_AssertPointer(pal, "NULL pointer");
     NE_Assert(pal->index != NE_NO_PALETTE, "No asigned palette");
-    NE_Assert(palette_adress == NULL, "Another palette already active");
+    NE_Assert(palette_address == NULL, "Another palette already active");
 
-    palette_adress = NE_PalInfo[pal->index].pointer;
+    palette_address = NE_PalInfo[pal->index].pointer;
     palette_format = NE_PalInfo[pal->index].format;
 
     // Enable CPU accesses to VRAM_E
     vramSetBankE(VRAM_E_LCD);
 
-    return palette_adress;
+    return palette_address;
 }
 
 void NE_PaletteRGB256SetColor(u8 colorindex, u16 color)
 {
-    NE_AssertPointer(palette_adress, "No active palette");
+    NE_AssertPointer(palette_address, "No active palette");
     NE_Assert(palette_format == NE_PAL256, "Active palette isn't NE_PAL256");
 
-    palette_adress[colorindex] = color;
+    palette_address[colorindex] = color;
 }
 
 void NE_PaletteModificationEnd(void)
 {
-    NE_Assert(palette_adress != NULL, "No active palette");
+    NE_Assert(palette_address != NULL, "No active palette");
 
     // Disable CPU accesses to VRAM_E
     vramSetBankE(VRAM_E_TEX_PALETTE);
 
-    palette_adress = NULL;
+    palette_address = NULL;
+}
+
+NE_TextureFormat NE_PaletteGetFormat(NE_Palette *pal)
+{
+    if (!ne_palette_system_inited)
+        return 0;
+
+    NE_AssertPointer(pal, "NULL palette pointer");
+
+    return NE_PalInfo[pal->index].format;
 }

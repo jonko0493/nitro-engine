@@ -465,10 +465,26 @@ int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
 
     void *out_texture = NULL;
     size_t out_width, out_height;
+    void *texture_buffer = info->texture_buffer;
+    u32 fmt = info->fmt;
+    size_t texture_width = info->texture_width, texture_height = info->texture_height;
+    bool started_drawing = false;
+    if (texture_buffer == NULL)
+    {
+        texture_buffer = NE_TextureDrawingStart(info->material);
+        fmt = NE_PaletteGetFormat(info->palette);
+        texture_width = NE_TextureGetSizeX(info->material);
+        texture_height = NE_TextureGetSizeY(info->material);
+        started_drawing = true;
+    }
     dsf_error err = DSF_StringRenderToTexture(info->handle,
-                            str, info->fmt, info->texture_buffer,
-                            info->texture_width, info->texture_height,
+                            str, fmt, texture_buffer,
+                            texture_width, texture_height,
                             &out_texture, &out_width, &out_height);
+    if (started_drawing)
+    {
+        NE_TextureDrawingEnd();
+    }
     if (err != DSF_NO_ERROR)
     {
         free(out_texture);
@@ -484,15 +500,47 @@ int NE_RichTextRenderMaterial(u32 slot, const char *str, NE_Material **mat,
         return 0;
     }
 
-    if (info->palette_buffer != NULL)
+    if (info->palette_buffer != NULL || started_drawing)
     {
+        void *palette_buffer = info->palette_buffer;
+        size_t palette_size = info->palette_size / 2;
+        if (started_drawing)
+        {
+            palette_buffer = NE_PaletteModificationStart(info->palette);
+            switch (fmt)
+            {
+            case NE_A3PAL32:
+                palette_size = 32;
+                break;
+            case NE_PAL4:
+                palette_size = 4;
+                break;
+            case NE_PAL16:
+                palette_size = 16;
+                break;
+            case NE_PAL256:
+                palette_size = 256;
+                break;
+            case NE_A5PAL8:
+                palette_size = 8;
+                break;
+            default:
+                palette_size = 0;
+                break;
+            }
+        }
+
         NE_Palette *palette = NE_PaletteCreate();
-        if (NE_PaletteLoad(palette, info->palette_buffer,
-                           info->palette_size / 2, info->fmt) == 0)
+        if (NE_PaletteLoad(palette, palette_buffer, palette_size, fmt) == 0)
         {
             NE_MaterialDelete(*mat);
             free(out_texture);
             return 0;
+        }
+
+        if (started_drawing)
+        {
+            NE_PaletteModificationEnd();
         }
 
         NE_MaterialSetPalette(*mat, palette);
