@@ -115,7 +115,7 @@ def joint_info_to_m4x3(q, trans):
 
 def parse_md5mesh(input_file):
     Joint = namedtuple("Joint", "name parent pos orient")
-    Vert = namedtuple("Vert", "st startWeight countWeight")
+    Vert = namedtuple("Vert", "st startWeight countWeight color")
     Weight = namedtuple("Weight", "joint bias pos")
     Mesh = namedtuple("Mesh", "numverts verts numtris tris numweights weights")
 
@@ -251,20 +251,19 @@ def parse_md5mesh(input_file):
                     verts = [None] * numverts
 
                 elif cmd == 'vert':
-                    assert_num_args('vert', nargs, 7, tokens)
-                    if numverts is None:
-                        raise MD5FormatError("'vert' command before 'numverts'")
+                    import re
+                    vert_pattern = re.compile(
+                        r'vert\s+(\d+)\s+\(\s*([0-9eE\+\-\.]+)\s+([0-9eE\+\-\.]+)\s*\)\s+(\d+)\s+(\d+)(?:\s+\(\s*([0-9eE\+\-\.]+)\s+([0-9eE\+\-\.]+)\s+([0-9eE\+\-\.]+)\s*\))?'
+                    )
 
-                    index = int(tokens[0])
-
-                    if tokens[1] != '(':
-                        raise MD5FormatError(f"Unexpected token 1 for vert': {tokens}")
-                    st = (float(tokens[2]), float(tokens[3]))
-                    if tokens[4] != ')':
-                        raise MD5FormatError(f"Unexpected token 4 for vert': {tokens}")
-
-                    startWeight = int(tokens[5])
-                    countWeight = int(tokens[6])
+                    match = vert_pattern.match("vert " + " ".join(tokens))
+                    if not match:
+                        raise MD5FormatError(f"Found vertex with no color info: {' '.join(tokens)}")
+                    
+                    index = int(match.group(1))
+                    st = (float(match.group(2)), float(match.group(3)))
+                    startWeight = int(match.group(4))
+                    countWeight = int(match.group(5))
 
                     if countWeight != 1:
                         raise MD5FormatError(
@@ -272,8 +271,13 @@ def parse_md5mesh(input_file):
                             "only supports vertices with one weight. Ensure that all your "
                             "vertices are assigned exactly one weight with a bias of 1.0."
                         )
+                    
+                    if match.group(6):
+                        color = (float(match.group(6)), float(match.group(7)), float(match.group(8)))
+                    else:
+                        color = None
 
-                    verts[index] = Vert(st, startWeight, countWeight)
+                    verts[index] = Vert(st, startWeight, countWeight, color)
 
                 elif cmd == 'numtris':
                     assert_num_args('numtris', nargs, 1, tokens)
@@ -592,7 +596,7 @@ def save_animation(frames, output_file, blender_fix):
 
 def convert_md5mesh(model_file, name, output_folder, texture_size,
                     draw_normal_polygons, extension_mesh, extension_anim,
-                    blender_fix, export_base_pose):
+                    blender_fix, export_base_pose, use_vertex_color=False):
 
     print(f"Converting model: {model_file}")
 
@@ -622,12 +626,16 @@ def convert_md5mesh(model_file, name, output_folder, texture_size,
     base_matrix = 30 - len(joints) + 1
     last_joint_index = None
 
-    for mesh in meshes:
+    for mesh_index, mesh in enumerate(meshes):
         print(f"  Vertices: {mesh.numverts}")
         print(f"  Tris:     {mesh.numtris}")
         print(f"  Weights:  {mesh.numweights}")
 
-        print("  Generating per-triangle normals...")
+        if use_vertex_color:
+            print("  Generating vertex colors...")
+
+        if not use_vertex_color:
+            print("  Generating per-triangle normals...")
 
         tri_normal = []
         for tri in mesh.tris:
@@ -660,7 +668,8 @@ def convert_md5mesh(model_file, name, output_folder, texture_size,
 
             finals = []
 
-            for vert, weight in zip(verts, weights):
+            for vi, (vert, weight) in enumerate(zip(verts, weights)):
+                vertex_index = tri[vi]
 
                 # Texture
                 # -------
@@ -696,7 +705,16 @@ def convert_md5mesh(model_file, name, output_folder, texture_size,
                 n = qt.mul(n).mul(q).to_v3()
                 if n.length() > 0:
                     n = n.normalize()
-                dl.normal(n.x, n.y, n.z)
+
+                if use_vertex_color:
+                    if vert.color is None:
+                        raise MD5FormatError(
+                            f"Found vertex with no color info: {vertex_index}"
+                        )
+                    dl.color(vert.color[0], vert.color[1], vert.color[2])
+                else:
+                    # Only generate normal commands if there is no vertex color
+                    dl.normal(n.x, n.y, n.z)
 
                 # The vertex is already in joint space
 
@@ -814,6 +832,9 @@ if __name__ == "__main__":
     parser.add_argument("--draw-normal-polygons", required=False,
                         action='store_true',
                         help="draw polygons with the shape of normals for debugging")
+    parser.add_argument("--use-vertex-color", required=False,
+                        action='store_true',
+                        help="use vertex colors instead of normals")
 
     args = parser.parse_args()
 
@@ -842,7 +863,7 @@ if __name__ == "__main__":
             convert_md5mesh(args.model, args.name, args.output, args.texture,
                             args.draw_normal_polygons, extension_mesh,
                             extension_anim, args.blender_fix,
-                            args.export_base_pose)
+                            args.export_base_pose, use_vertex_color=args.use_vertex_color)
 
         for anim_file in args.anims:
             convert_md5anim(args.name, args.output, anim_file, args.skip_frames,
