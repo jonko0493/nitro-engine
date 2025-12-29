@@ -939,6 +939,8 @@ dsf_error DSF_StringRenderToTextureReturnMetadata(dsf_handle handle,
     if (ret != DSF_NO_ERROR)
         return ret;
 
+    tex_height += 2;
+
     if ((tex_width > 1024) || (tex_height > 1024))
         return DSF_TEXTURE_TOO_BIG;
 
