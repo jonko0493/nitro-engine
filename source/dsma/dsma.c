@@ -12,6 +12,17 @@
 // Engine's functions to draw display lists instead of relying on libnds.
 #include "NEMain.h"
 
+// Format of a uv translation in a DST file.
+typedef struct {
+    int32_t uv[2];
+} dst_uv_t;
+
+// Format of a DST file.
+typedef struct {
+    uint32_t num_frames;
+    dst_uv_t uvs[0];
+} dst_t;
+
 // Format of a joint in a DSA file.
 typedef struct {
     int32_t pos[3];    // Translation (x, y, z)
@@ -72,6 +83,22 @@ void matrix_mult_by_joint(const int32_t *v, const int32_t *q)
     MATRIX_MULT4x3 = v[2];
 }
 
+ITCM_CODE ARM_CODE static inline
+void matrix_mult_by_uv(const dst_uv_t *t)
+{
+    MATRIX_MULT3x3 = inttof32(1);
+    MATRIX_MULT3x3 = 0;
+    MATRIX_MULT3x3 = t->uv[0];
+
+    MATRIX_MULT3x3 = 0;
+    MATRIX_MULT3x3 = inttof32(1);
+    MATRIX_MULT3x3 = t->uv[1];
+
+    MATRIX_MULT3x3 = 0;
+    MATRIX_MULT3x3 = 0;
+    MATRIX_MULT3x3 = inttof32(1);
+}
+
 // Gets a pointer to the list of joints of the specified frame.
 ITCM_CODE ARM_CODE static inline
 const dsa_joint_t *dsa_get_frame(const dsa_t *dsa, uint32_t frame)
@@ -121,6 +148,12 @@ void dsa_interpolate_frames(const int32_t *v_pos_1, const int32_t *q_orient_1,
 // Public functions
 // ================
 
+uint32_t DSMT_GetNumFrames(const void *dst_file)
+{
+    const dst_t *dst = dst_file;
+    return dst->num_frames;
+}
+
 uint32_t DSMA_GetNumFrames(const void *dsa_file)
 {
     const dsa_t *dsa = dsa_file;
@@ -128,9 +161,10 @@ uint32_t DSMA_GetNumFrames(const void *dsa_file)
 }
 
 ITCM_CODE ARM_CODE
-int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_interp)
+int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_interp, const void *dst_file)
 {
     const dsa_t *dsa = dsa_file;
+    const dst_t *dst = dst_file;
 
     if (dsa->version != DSA_VERSION_NUMBER)
         return DSMA_INVALID_VERSION;
@@ -157,6 +191,25 @@ int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_in
         return DSMA_MATRIX_STACK_FULL;
 
     MATRIX_PUSH = 0;
+
+    // Generate matrix for UV transformation
+    // -------------------------------------
+
+    if (dst != NULL)
+    {
+        const dst_uv_t *frame_ptr = &dst->uvs[frame];
+        
+        MATRIX_CONTROL = GL_TEXTURE;
+        matrix_mult_by_uv(frame_ptr);
+        MATRIX_PUSH = 0;
+        MATRIX_CONTROL = GL_MODELVIEW;
+    }
+    else
+    {
+        MATRIX_CONTROL = GL_TEXTURE;
+        MATRIX_PUSH = 0;
+        MATRIX_CONTROL = GL_MODELVIEW;
+    }
 
     // Generate matrices with bone transformations
     // -------------------------------------------
@@ -225,10 +278,11 @@ ITCM_CODE ARM_CODE
 int DSMA_DrawModelBlendAnimation(const void *dsm_file,
         const void *dsa_file_1, uint32_t frame_interp_1,
         const void *dsa_file_2, uint32_t frame_interp_2,
-        uint32_t blend)
+        uint32_t blend, const void *dst_file)
 {
     const dsa_t *dsa_1 = dsa_file_1;
     const dsa_t *dsa_2 = dsa_file_2;
+    const dst_t *dst = dst_file;
 
     if (dsa_1->version != DSA_VERSION_NUMBER)
         return DSMA_INVALID_VERSION;
@@ -272,6 +326,25 @@ int DSMA_DrawModelBlendAnimation(const void *dsm_file,
         return DSMA_MATRIX_STACK_FULL;
 
     MATRIX_PUSH = 0;
+
+    // Generate matrix for UV transformation
+    // -------------------------------------
+
+    if (dst != NULL)
+    {
+        const dst_uv_t *frame_ptr = &dst->uvs[frame_1];
+        
+        MATRIX_CONTROL = GL_TEXTURE;
+        matrix_mult_by_uv(frame_ptr);
+        MATRIX_PUSH = 0;
+        MATRIX_CONTROL = GL_MODELVIEW;
+    }
+    else
+    {
+        MATRIX_CONTROL = GL_TEXTURE;
+        MATRIX_PUSH = 0;
+        MATRIX_CONTROL = GL_MODELVIEW;
+    }
 
     // Generate matrices with bone transformations
     // -------------------------------------------

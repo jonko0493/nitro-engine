@@ -17,6 +17,9 @@ extern "C" {
 # define ARM_CODE __attribute__((target("arm")))
 #endif
 
+// Returns the number of frames stored in the specified DST file.
+uint32_t DSMT_GetNumFrames(const void *dst_file);
+
 // Returns the number of frames stored in the specified DSA file.
 uint32_t DSMA_GetNumFrames(const void *dsa_file);
 
@@ -30,8 +33,7 @@ uint32_t DSMA_GetNumFrames(const void *dsa_file);
 //
 // It returns a DSMA_* code (0 for success).
 ITCM_CODE ARM_CODE
-int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_interp);
-
+int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_interp, const void *dst_file);
 
 // Draws the model in the DSM file animated with the data in the specified DSA
 // files, at the requested frame, with the requested blending factor between the
@@ -48,7 +50,7 @@ ITCM_CODE ARM_CODE
 int DSMA_DrawModelBlendAnimation(const void *dsm_file,
         const void *dsa_file_1, uint32_t frame_interp_1,
         const void *dsa_file_2, uint32_t frame_interp_2,
-        uint32_t blend);
+        uint32_t blend, const void *dst_file);
 
 #define DSMA_SUCCESS                    0
 #define DSMA_INVALID_VERSION            -1

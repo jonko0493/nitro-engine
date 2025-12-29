@@ -49,6 +49,7 @@ typedef struct {
     NE_AnimInfo *animinfo[2]; ///< Animation information (two can be blended)
     int32_t anim_blend;       ///< Animation blend factor
     NE_Material *texture;     ///< Material used by this model
+    NE_AnimInfo *texanim;     ///< Texture animation information
     int x;                    ///< X position of the model (f32)
     int y;                    ///< Y position of the model (f32)
     int z;                    ///< Z position of the model (f32)
@@ -112,6 +113,12 @@ int NE_ModelLoadStaticMeshFAT(NE_Model *model, const char *path);
 /// @param model Pointer to the model.
 /// @param material Pointer to the material.
 void NE_ModelSetMaterial(NE_Model *model, NE_Material *material);
+
+/// Assign a texture animation to a model.
+///
+/// @param model Pointer to the model.
+/// @param anim Pointer to the texture animation.
+void NE_ModelSetTexAnim(NE_Model *model, NE_Animation *anim);
 
 /// Assign an animation to a model.
 ///
@@ -269,6 +276,13 @@ void NE_ModelAnimStart(NE_Model *model, NE_AnimationType type, int32_t speed);
 /// @param speed Animation speed. (f32)
 void NE_ModelAnimSecondaryStart(NE_Model *model, NE_AnimationType type,
                                 int32_t speed);
+
+/// Starts the texture animation of an animated model.
+///
+/// @param model Pointer to the model.
+/// @param type Animation type (NE_ANIM_LOOP / NE_ANIM_ONESHOT).
+/// @param speed Animation speed. (f32)
+void NE_ModelTexAnimStart(NE_Model *model, NE_AnimationType type, int32_t speed);
 
 /// Sets animation speed.
 ///

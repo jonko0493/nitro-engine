@@ -154,6 +154,9 @@ NE_Model *NE_ModelCreate(NE_ModelType type)
             NE_AssertPointer(model->animinfo[i],
                              "Couldn't allocate animation info");
         }
+        model->texanim = calloc(sizeof(NE_AnimInfo), 1);
+        NE_AssertPointer(model->texanim,
+                            "Couldn't allocate texture animation info");
     }
 
     return model;
@@ -186,6 +189,7 @@ void NE_ModelDelete(NE_Model *model)
     {
         for (int i = 0; i < 2; i++)
             free(model->animinfo[i]);
+        free(model->texanim);
     }
 
     if (model->mat != NULL)
@@ -233,6 +237,16 @@ void NE_ModelSetMaterial(NE_Model *model, NE_Material *material)
     NE_AssertPointer(model, "NULL model pointer");
     NE_AssertPointer(material, "NULL material pointer");
     model->texture = material;
+}
+
+void NE_ModelSetTexAnim(NE_Model *model, NE_Animation *anim)
+{
+    NE_AssertPointer(model, "NULL model pointer");
+    NE_AssertPointer(anim, "NULL animation pointer");
+    NE_Assert(model->modeltype == NE_Animated, "Not an animated model");
+    model->texanim->animation = anim;
+    uint32_t frames = DSMT_GetNumFrames(anim->data);
+    model->texanim->numframes = frames;
 }
 
 void NE_ModelSetAnimation(NE_Model *model, NE_Animation *anim)
@@ -325,14 +339,16 @@ void NE_ModelDraw(const NE_Model *model)
                     model->animinfo[0]->currframe,
                     model->animinfo[1]->animation->data,
                     model->animinfo[1]->currframe,
-                    model->anim_blend);
+                    model->anim_blend,
+                    model->texanim->animation ? model->texanim->animation->data : NULL);
             NE_Assert(ret == DSMA_SUCCESS, "Failed to draw animated model");
         }
         else // if (model->animinfo[0]->animation)
         {
             int ret = DSMA_DrawModel(meshdata,
                                      model->animinfo[0]->animation->data,
-                                     model->animinfo[0]->currframe);
+                                     model->animinfo[0]->currframe,
+                                     model->texanim->animation ? model->texanim->animation->data : NULL);
             NE_Assert(ret == DSMA_SUCCESS, "Failed to draw animated model");
         }
     }
@@ -506,6 +522,15 @@ void NE_ModelAnimSecondaryStart(NE_Model *model, NE_AnimationType type,
     model->animinfo[1]->speed = speed;
     model->animinfo[1]->currframe = 0;
     model->anim_blend = 0;
+}
+
+void NE_ModelTexAnimStart(NE_Model *model, NE_AnimationType type, int32_t speed)
+{
+    NE_AssertPointer(model, "NULL pointer");
+    NE_Assert(model->modeltype == NE_Animated, "Not an animated model");
+    model->texanim->type = type;
+    model->texanim->speed = speed;
+    model->texanim->currframe = 0;
 }
 
 void NE_ModelAnimSetSpeed(NE_Model *model, int32_t speed)

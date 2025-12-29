@@ -177,6 +177,9 @@ class DisplayList():
     def nop(self):
         self.add_command(command_name_to_id("NOP"))
 
+    def mtx_mode(self, mode):
+        self.add_command(command_name_to_id("MTX_MODE"), mode)
+
     def mtx_push(self):
         self.add_command(command_name_to_id("MTX_PUSH"))
 
