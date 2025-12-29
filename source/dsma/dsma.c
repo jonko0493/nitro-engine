@@ -19,6 +19,7 @@ typedef struct {
 
 // Format of a DST file.
 typedef struct {
+    uint32_t version;
     uint32_t num_frames;
     dst_uv_t uvs[0];
 } dst_t;
@@ -86,17 +87,25 @@ void matrix_mult_by_joint(const int32_t *v, const int32_t *q)
 ITCM_CODE ARM_CODE static inline
 void matrix_mult_by_uv(const dst_uv_t *t)
 {
-    MATRIX_MULT3x3 = inttof32(1);
-    MATRIX_MULT3x3 = 0;
-    MATRIX_MULT3x3 = t->uv[0];
+    MATRIX_MULT4x4 = inttof32(1);
+    MATRIX_MULT4x4 = 0;
+    MATRIX_MULT4x4 = 0;
+    MATRIX_MULT4x4 = 0;
 
-    MATRIX_MULT3x3 = 0;
-    MATRIX_MULT3x3 = inttof32(1);
-    MATRIX_MULT3x3 = t->uv[1];
+    MATRIX_MULT4x4 = 0;
+    MATRIX_MULT4x4 = inttof32(1);
+    MATRIX_MULT4x4 = 0;
+    MATRIX_MULT4x4 = 0;
 
-    MATRIX_MULT3x3 = 0;
-    MATRIX_MULT3x3 = 0;
-    MATRIX_MULT3x3 = inttof32(1);
+    MATRIX_MULT4x4 = 0;
+    MATRIX_MULT4x4 = 0;
+    MATRIX_MULT4x4 = inttof32(1);
+    MATRIX_MULT4x4 = 0;
+
+    MATRIX_MULT4x4 = t->uv[0];
+    MATRIX_MULT4x4 = t->uv[1];
+    MATRIX_MULT4x4 = 0;
+    MATRIX_MULT4x4 = inttof32(1);
 }
 
 // Gets a pointer to the list of joints of the specified frame.
@@ -161,7 +170,7 @@ uint32_t DSMA_GetNumFrames(const void *dsa_file)
 }
 
 ITCM_CODE ARM_CODE
-int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_interp, const void *dst_file)
+int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_interp, const void *dst_file, uint32_t texanim_frame)
 {
     const dsa_t *dsa = dsa_file;
     const dst_t *dst = dst_file;
@@ -175,8 +184,33 @@ int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_in
     uint32_t frame = frame_interp >> 12;
     uint32_t interp = frame_interp & 0xFFF;
 
+    uint32_t tex_frame = texanim_frame >> 12;
+
     if (frame >= num_frames)
         return DSMA_INVALID_FRAME;
+
+    // Generate matrix for UV transformation
+    // -------------------------------------
+
+    MATRIX_CONTROL = GL_TEXTURE;
+    MATRIX_PUSH = 0;
+
+    // Wait for matrix push/pop operations to end
+    while (GFX_STATUS & BIT(14));
+
+    if (dst != NULL)
+    {
+        const dst_uv_t *frame_ptr = &dst->uvs[tex_frame];
+        matrix_mult_by_uv(frame_ptr);
+        MATRIX_PUSH = 0;
+    }
+    else
+    {
+        MATRIX_PUSH = 0;
+    }
+
+    MATRIX_POP = 1;
+    MATRIX_CONTROL = GL_MODELVIEW;
 
     // Make sure that there is enough space in the matrix stack
     // --------------------------------------------------------
@@ -191,25 +225,6 @@ int DSMA_DrawModel(const void *dsm_file, const void *dsa_file, uint32_t frame_in
         return DSMA_MATRIX_STACK_FULL;
 
     MATRIX_PUSH = 0;
-
-    // Generate matrix for UV transformation
-    // -------------------------------------
-
-    if (dst != NULL)
-    {
-        const dst_uv_t *frame_ptr = &dst->uvs[frame];
-        
-        MATRIX_CONTROL = GL_TEXTURE;
-        matrix_mult_by_uv(frame_ptr);
-        MATRIX_PUSH = 0;
-        MATRIX_CONTROL = GL_MODELVIEW;
-    }
-    else
-    {
-        MATRIX_CONTROL = GL_TEXTURE;
-        MATRIX_PUSH = 0;
-        MATRIX_CONTROL = GL_MODELVIEW;
-    }
 
     // Generate matrices with bone transformations
     // -------------------------------------------
@@ -278,7 +293,7 @@ ITCM_CODE ARM_CODE
 int DSMA_DrawModelBlendAnimation(const void *dsm_file,
         const void *dsa_file_1, uint32_t frame_interp_1,
         const void *dsa_file_2, uint32_t frame_interp_2,
-        uint32_t blend, const void *dst_file)
+        uint32_t blend, const void *dst_file, uint32_t texanim_frame)
 {
     const dsa_t *dsa_1 = dsa_file_1;
     const dsa_t *dsa_2 = dsa_file_2;
@@ -313,6 +328,8 @@ int DSMA_DrawModelBlendAnimation(const void *dsm_file,
     if (blend > inttof32(1))
         return DSMA_INVALID_BLENDING;
 
+    uint32_t tex_frame = texanim_frame >> 12;
+
     // Make sure that there is enough space in the matrix stack
     // --------------------------------------------------------
 
@@ -332,7 +349,7 @@ int DSMA_DrawModelBlendAnimation(const void *dsm_file,
 
     if (dst != NULL)
     {
-        const dst_uv_t *frame_ptr = &dst->uvs[frame_1];
+        const dst_uv_t *frame_ptr = &dst->uvs[tex_frame];
         
         MATRIX_CONTROL = GL_TEXTURE;
         matrix_mult_by_uv(frame_ptr);

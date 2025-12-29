@@ -614,9 +614,10 @@ def save_animation(frames, output_file, blender_fix):
             f.write(bytearray(b))
 
 def save_texanim(frames, output_file):
+    version = 1
     num_frames = len(frames)
 
-    u32_array = [num_frames]
+    u32_array = [version, num_frames]
     for frame in frames:
         u32_array.extend([float_to_f32(frame[0]), float_to_f32(frame[1])])
     with open(output_file, "wb") as f:

@@ -340,7 +340,8 @@ void NE_ModelDraw(const NE_Model *model)
                     model->animinfo[1]->animation->data,
                     model->animinfo[1]->currframe,
                     model->anim_blend,
-                    model->texanim->animation ? model->texanim->animation->data : NULL);
+                    model->texanim->animation ? model->texanim->animation->data : NULL,
+                    model->texanim->currframe);
             NE_Assert(ret == DSMA_SUCCESS, "Failed to draw animated model");
         }
         else // if (model->animinfo[0]->animation)
@@ -348,7 +349,8 @@ void NE_ModelDraw(const NE_Model *model)
             int ret = DSMA_DrawModel(meshdata,
                                      model->animinfo[0]->animation->data,
                                      model->animinfo[0]->currframe,
-                                     model->texanim->animation ? model->texanim->animation->data : NULL);
+                                     model->texanim->animation ? model->texanim->animation->data : NULL,
+                                     model->texanim->currframe);
             NE_Assert(ret == DSMA_SUCCESS, "Failed to draw animated model");
         }
     }
@@ -499,6 +501,30 @@ void NE_ModelAnimateAll(void)
                     animinfo->currframe = 0;
                     animinfo->speed = 0;
                 }
+            }
+        }
+        NE_AnimInfo *texaniminfo = NE_ModelPointers[i]->texanim;
+        texaniminfo->currframe += texaniminfo->speed;
+        if (texaniminfo->type == NE_ANIM_LOOP)
+        {
+            int32_t endval = inttof32(texaniminfo->numframes);
+            if (texaniminfo->currframe >= endval)
+                texaniminfo->currframe -= endval;
+            else if (texaniminfo->currframe < 0)
+                texaniminfo->currframe += endval;
+        }
+        else if (texaniminfo->type ==  NE_ANIM_ONESHOT)
+        {
+            int32_t endval = inttof32(texaniminfo->numframes - 1);
+            if (texaniminfo->currframe > endval)
+            {
+                texaniminfo->currframe = endval;
+                texaniminfo->speed = 0;
+            }
+            else if (texaniminfo->currframe < 0)
+            {
+                texaniminfo->currframe = 0;
+                texaniminfo->speed = 0;
             }
         }
     }
