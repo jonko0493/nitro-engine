@@ -123,6 +123,11 @@ void *NE_PaletteModificationStart(const NE_Palette *pal);
 /// @param color New color.
 void NE_PaletteRGB256SetColor(u8 colorindex, u16 color);
 
+/// Inverts the colors of the palette currently being moodified
+///
+/// Use this during VBL.
+void NE_PaletteInvert(void);
+
 /// Disables modification of palettes.
 ///
 /// Use this during VBL.
