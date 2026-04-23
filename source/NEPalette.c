@@ -315,7 +315,7 @@ void NE_PaletteFilter(u16 operand, NE_PalOperator op)
 
     for (int i = 0; i < palette_num_colors; i++)
     {
-        switch (operator)
+        switch (op)
         {
         case NE_OpAdd:
             palette_address[i] += operand;
