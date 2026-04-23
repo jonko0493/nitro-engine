@@ -309,13 +309,35 @@ void NE_PaletteRGB256SetColor(u8 colorindex, u16 color)
     palette_address[colorindex] = color;
 }
 
-void NE_PaletteInvert()
+void NE_PaletteFilter(u16 operand, NE_PalOperator op)
 {
     NE_AssertPointer(palette_address, "No active palette");
 
     for (int i = 0; i < palette_num_colors; i++)
     {
-        palette_address[i] = 0x7FFF ^ palette_address[i];
+        switch (operator)
+        {
+        case NE_OpAdd:
+            palette_address[i] += operand;
+            break;
+        case NE_OpSubtract:
+            palette_address[i] -= operand;
+            break;
+        case NE_OpShiftLeft:
+            palette_address[i] <<= operand;
+            break;
+        case NE_OpShiftRight:
+            palette_address[i] >>= operand;
+            break;
+        case NE_OpAnd:
+            palette_address[i] = palette_address[i] & operand;
+            break;
+        case NE_OpOr:
+            palette_address[i] = palette_address[i] | operand;
+            break;
+        case NE_OpXor:
+            palette_address[i] = palette_address[i] ^ operand;
+        }
     }
 }
 
