@@ -12,6 +12,7 @@
 typedef struct {
     u16 *pointer;
     int format;
+    u16 numcolors;
 } ne_palinfo_t;
 
 static ne_palinfo_t *NE_PalInfo = NULL;
@@ -118,6 +119,7 @@ int NE_PaletteLoad(NE_Palette *pal, const void *pointer, u16 numcolor,
     NE_PalInfo[slot].format = format;
 
     pal->index = slot;
+    NE_PalInfo[slot].numcolors = numcolor;
 
     // Allow CPU writes to VRAM_E
     vramSetBankE(VRAM_E_LCD);
@@ -279,38 +281,72 @@ void NE_PaletteSystemEnd(void)
     ne_palette_system_inited = false;
 }
 
-static u16 *palette_adress = NULL;
+static u16 *palette_address = NULL;
 static int palette_format;
+static int palette_num_colors;
 
 void *NE_PaletteModificationStart(const NE_Palette *pal)
 {
     NE_AssertPointer(pal, "NULL pointer");
     NE_Assert(pal->index != NE_NO_PALETTE, "No asigned palette");
-    NE_Assert(palette_adress == NULL, "Another palette already active");
+    NE_Assert(palette_address == NULL, "Another palette already active");
 
-    palette_adress = NE_PalInfo[pal->index].pointer;
+    palette_address = NE_PalInfo[pal->index].pointer;
     palette_format = NE_PalInfo[pal->index].format;
+    palette_num_colors = NE_PalInfo[pal->index].numcolors;
 
     // Enable CPU accesses to VRAM_E
     vramSetBankE(VRAM_E_LCD);
 
-    return palette_adress;
+    return palette_address;
 }
 
 void NE_PaletteRGB256SetColor(u8 colorindex, u16 color)
 {
-    NE_AssertPointer(palette_adress, "No active palette");
+    NE_AssertPointer(palette_address, "No active palette");
     NE_Assert(palette_format == NE_PAL256, "Active palette isn't NE_PAL256");
 
-    palette_adress[colorindex] = color;
+    palette_address[colorindex] = color;
+}
+
+void NE_PaletteFilter(u16 operand, NE_PalOperator op)
+{
+    NE_AssertPointer(palette_address, "No active palette");
+
+    for (int i = 0; i < palette_num_colors; i++)
+    {
+        switch (operator)
+        {
+        case NE_OpAdd:
+            palette_address[i] += operand;
+            break;
+        case NE_OpSubtract:
+            palette_address[i] -= operand;
+            break;
+        case NE_OpShiftLeft:
+            palette_address[i] <<= operand;
+            break;
+        case NE_OpShiftRight:
+            palette_address[i] >>= operand;
+            break;
+        case NE_OpAnd:
+            palette_address[i] = palette_address[i] & operand;
+            break;
+        case NE_OpOr:
+            palette_address[i] = palette_address[i] | operand;
+            break;
+        case NE_OpXor:
+            palette_address[i] = palette_address[i] ^ operand;
+        }
+    }
 }
 
 void NE_PaletteModificationEnd(void)
 {
-    NE_Assert(palette_adress != NULL, "No active palette");
+    NE_Assert(palette_address != NULL, "No active palette");
 
     // Disable CPU accesses to VRAM_E
     vramSetBankE(VRAM_E_TEX_PALETTE);
 
-    palette_adress = NULL;
+    palette_address = NULL;
 }

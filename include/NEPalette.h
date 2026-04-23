@@ -27,6 +27,17 @@ typedef struct {
     int index; ///< Index to internal palette object
 } NE_Palette;
 
+/// Represents different palette operations
+typedef enum {
+    NE_OpAdd,           ///< +
+    NE_OpSubtract,      ///< -
+    NE_OpShiftLeft,     ///< <<
+    NE_OpShiftRight,    ///< >>
+    NE_OpAnd,           ///< AND (&)
+    NE_OpOr,            ///< OR  (|) 
+    NE_OpXor            ///< XOR (^)
+} NE_PalOperator;
+
 /// Creates a new palette object.
 ///
 /// @return Pointer to the newly created palette.
@@ -122,6 +133,14 @@ void *NE_PaletteModificationStart(const NE_Palette *pal);
 /// @param colorindex Color index to change.
 /// @param color New color.
 void NE_PaletteRGB256SetColor(u8 colorindex, u16 color);
+
+/// Applies a custom filter to every color in the palette currently being modified.
+///
+/// Use this during VBL.
+
+/// @param operand The value to apply to every color in the palette.
+/// @param operator The operator to use when applying the specified value to every color in the palette.
+void NE_PaletteFilter(u16 operand, NE_PalOperator op);
 
 /// Disables modification of palettes.
 ///
