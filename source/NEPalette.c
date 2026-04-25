@@ -283,7 +283,7 @@ void NE_PaletteSystemEnd(void)
 
 static u16 *palette_address = NULL;
 static int palette_format;
-static int palette_num_colors;
+static u16 palette_num_colors;
 
 void *NE_PaletteModificationStart(const NE_Palette *pal)
 {
@@ -301,6 +301,11 @@ void *NE_PaletteModificationStart(const NE_Palette *pal)
     return palette_address;
 }
 
+u16 NE_PaletteModificationGetNumColors()
+{
+    return palette_num_colors;
+}
+
 void NE_PaletteRGB256SetColor(u8 colorindex, u16 color)
 {
     NE_AssertPointer(palette_address, "No active palette");
@@ -309,37 +314,7 @@ void NE_PaletteRGB256SetColor(u8 colorindex, u16 color)
     palette_address[colorindex] = color;
 }
 
-void NE_PaletteFilter(u16 operand, NE_PalOperator op)
-{
-    NE_AssertPointer(palette_address, "No active palette");
 
-    for (int i = 0; i < palette_num_colors; i++)
-    {
-        switch (op)
-        {
-        case NE_OpAdd:
-            palette_address[i] += operand;
-            break;
-        case NE_OpSubtract:
-            palette_address[i] -= operand;
-            break;
-        case NE_OpShiftLeft:
-            palette_address[i] <<= operand;
-            break;
-        case NE_OpShiftRight:
-            palette_address[i] >>= operand;
-            break;
-        case NE_OpAnd:
-            palette_address[i] = palette_address[i] & operand;
-            break;
-        case NE_OpOr:
-            palette_address[i] = palette_address[i] | operand;
-            break;
-        case NE_OpXor:
-            palette_address[i] = palette_address[i] ^ operand;
-        }
-    }
-}
 
 void NE_PaletteModificationEnd(void)
 {
