@@ -12,6 +12,7 @@
 typedef struct {
     u16 *pointer;
     int format;
+    u16 numcolors;
 } ne_palinfo_t;
 
 static ne_palinfo_t *NE_PalInfo = NULL;
@@ -118,6 +119,7 @@ int NE_PaletteLoad(NE_Palette *pal, const void *pointer, u16 numcolor,
     NE_PalInfo[slot].format = format;
 
     pal->index = slot;
+    NE_PalInfo[slot].numcolors = numcolor;
 
     // Allow CPU writes to VRAM_E
     vramSetBankE(VRAM_E_LCD);
@@ -281,6 +283,7 @@ void NE_PaletteSystemEnd(void)
 
 static u16 *palette_address = NULL;
 static int palette_format;
+static u16 palette_num_colors;
 
 void *NE_PaletteModificationStart(const NE_Palette *pal)
 {
@@ -290,11 +293,17 @@ void *NE_PaletteModificationStart(const NE_Palette *pal)
 
     palette_address = NE_PalInfo[pal->index].pointer;
     palette_format = NE_PalInfo[pal->index].format;
+    palette_num_colors = NE_PalInfo[pal->index].numcolors;
 
     // Enable CPU accesses to VRAM_E
     vramSetBankE(VRAM_E_LCD);
 
     return palette_address;
+}
+
+u16 NE_PaletteModificationGetNumColors()
+{
+    return palette_num_colors;
 }
 
 void NE_PaletteRGB256SetColor(u8 colorindex, u16 color)
@@ -304,6 +313,8 @@ void NE_PaletteRGB256SetColor(u8 colorindex, u16 color)
 
     palette_address[colorindex] = color;
 }
+
+
 
 void NE_PaletteModificationEnd(void)
 {
