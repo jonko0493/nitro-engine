@@ -345,6 +345,12 @@ int NE_ModelLoadDSM(NE_Model *model, const void *pointer);
 /// @return It returns 1 on success, 0 on error.
 int NE_ModelLoadDSMFAT(NE_Model *model, const char *path);
 
+/// Modifies a model's display list in memory.
+///
+/// @param model Pointer to the model.
+/// @param modification Function to modify the display list
+void NE_ModelModify(NE_Model *model, void (*modification)(NE_GfxFifoCmd cmd, void *params));
+
 /// Deletes all models and frees all memory used by them.
 void NE_ModelDeleteAll(void);
 

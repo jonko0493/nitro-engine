@@ -598,6 +598,13 @@ int NE_ModelLoadDSM(NE_Model *model, const void *pointer)
     return ne_model_load_ram_common(model, pointer);
 }
 
+void NE_ModelModify(NE_Model *model, void (*modification)(NE_GfxFifoCmd cmd, void *params))
+{
+    ne_mesh_info_t *mesh = &NE_Mesh[model->meshindex];
+
+    NE_DisplayListModify(mesh->address, modification);
+}
+
 void NE_ModelDeleteAll(void)
 {
     if (!ne_model_system_inited)
