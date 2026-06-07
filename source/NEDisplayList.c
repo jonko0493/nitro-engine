@@ -12,81 +12,81 @@ static int num_params_for_fifo_cmd(NE_GfxFifoCmd cmd)
 {
     switch (cmd)
     {
-    case NOP:
+    case NE_FIFO_NOP:
         return 0;
-    case MTX_MODE:
+    case NE_FIFO_MTX_MODE:
         return 1;
-    case MTX_PUSH:
+    case NE_FIFO_MTX_PUSH:
         return 0;
-    case MTX_POP:
+    case NE_FIFO_MTX_POP:
         return 1;
-    case MTX_STORE:
+    case NE_FIFO_MTX_STORE:
         return 1;
-    case MTX_RESTORE:
+    case NE_FIFO_MTX_RESTORE:
         return 1;
-    case MTX_IDENTITY:
+    case NE_FIFO_MTX_IDENTITY:
         return 0;
-    case MTX_LOAD_4x4:
+    case NE_FIFO_MTX_LOAD_4x4:
         return 16;
-    case MTX_LOAD_4x3:
+    case NE_FIFO_MTX_LOAD_4x3:
         return 12;
-    case MTX_MULT_4x4:
+    case NE_FIFO_MTX_MULT_4x4:
         return 16;
-    case MTX_MULT_4x3:
+    case NE_FIFO_MTX_MULT_4x3:
         return 12;
-    case MTX_MULT_3x3:
+    case NE_FIFO_MTX_MULT_3x3:
         return 9;
-    case MTX_SCALE:
+    case NE_FIFO_MTX_SCALE:
         return 3;
-    case MTX_TRANS:
+    case NE_FIFO_MTX_TRANS:
         return 3;
-    case COLOR:
+    case NE_FIFO_COLOR:
         return 1;
-    case NORMAL:
+    case NE_FIFO_NORMAL:
         return 1;
-    case TEXCOORD:
+    case NE_FIFO_TEXCOORD:
         return 1;
-    case VTX_16:
+    case NE_FIFO_VTX_16:
         return 2;
-    case VTX_10:
+    case NE_FIFO_VTX_10:
         return 1;
-    case VTX_XY:
+    case NE_FIFO_VTX_XY:
         return 1;
-    case VTX_XZ:
+    case NE_FIFO_VTX_XZ:
         return 1;
-    case VTX_YZ:
+    case NE_FIFO_VTX_YZ:
         return 1;
-    case VTX_DIFF:
+    case NE_FIFO_VTX_DIFF:
         return 1;
-    case POLYGON_ATTR:
+    case NE_FIFO_POLYGON_ATTR:
         return 1;
-    case TEXIMAGE_PARAM:
+    case NE_FIFO_TEXIMAGE_PARAM:
         return 1;
-    case PLTT_BASE:
+    case NE_FIFO_PLTT_BASE:
         return 1;
-    case DIF_AMB:
+    case NE_FIFO_DIF_AMB:
         return 1;
-    case SPE_EMI:
+    case NE_FIFO_SPE_EMI:
         return 1;
-    case LIGHT_VECTOR:
+    case NE_FIFO_LIGHT_VECTOR:
         return 1;
-    case LIGHT_COLOR:
+    case NE_FIFO_LIGHT_COLOR:
         return 1;
-    case SHININESS:
+    case NE_FIFO_SHININESS:
         return 32;
-    case BEGIN_VTXS:
+    case NE_FIFO_BEGIN_VTXS:
         return 1;
-    case END_VTXS:
+    case NE_FIFO_END_VTXS:
         return 0;
-    case SWAP_BUFFERS:
+    case NE_FIFO_SWAP_BUFFERS:
         return 1;
-    case VIEWPORT:
+    case NE_FIFO_VIEWPORT:
         return 1;
-    case BOX_TEST:
+    case NE_FIFO_BOX_TEST:
         return 3;
-    case POS_TEST:
+    case NE_FIFO_POS_TEST:
         return 2;
-    case VEC_TEST:
+    case NE_FIFO_VEC_TEST:
         return 1;
     }
 
@@ -165,6 +165,9 @@ void NE_DisplayListDrawDefault(const void *list)
 
 void NE_DisplayListModify(const void *list, void (*modification)(NE_GfxFifoCmd cmd, void *params))
 {
+    NE_AssertPointer(list, "NULL display list pointer");
+    NE_AssertPointer(modification, "NULL modification function");
+
     uint32_t *dl = (uint32_t *)list;
     int size = *dl++;
     for (int i = 0; i < size;)
