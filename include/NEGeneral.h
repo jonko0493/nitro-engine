@@ -242,7 +242,7 @@ NE_BufferingMode;
 void NE_SetDepthBufferingMode(NE_BufferingMode mode);
 
 /// Return the active depth buffering mode for 3D render.
-NE_BufferingMode NE_GetDepthBufferingMode(void)
+NE_BufferingMode NE_GetDepthBufferingMode(void);
 
 /// Returns the number of polygons drawn since the last glFlush().
 ///
