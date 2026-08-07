@@ -1,6 +1,16 @@
 Changelog
 =========
 
+Version 0.16.0 (2026-06-16)
+---------------------------
+
+- Minor updates to GitHub pipelines.
+- Support loading GRF files with Tex4x4 format. @Warioware64
+- Fix error on Python 3.14. @Mori-TM
+- Add function to get number of colors in a palette. @Jonko
+- Allow setting the depth buffering configuration. @Warioware64
+- Add function to let users modify display lists at runtime. @Jonko
+
 Version 0.15.7 (2026-03-23)
 ---------------------------
 
